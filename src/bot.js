@@ -1,6 +1,8 @@
 require("dotenv").config();
 
-const { Client } = require("discord.js");
+const { Client, DiscordAPIError } = require("discord.js");
+const ytdl = require('ytdl-core');
+const ytSearch = require('yt-search');
 
 const client = new Client({
   partials: ["MESSAGE", "REACTION"],
@@ -55,6 +57,47 @@ client.on("message", async (message) => {
       for (const [memberID, member] of channel.members) {
         channel.join(channelID);
       }
+    }
+
+    //creating queue
+    const queue = new Map();
+
+    //validating url method
+    const validURL = (str) => {
+      var regex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/
+      return regex.test(str);
+    }
+
+    //searching search term
+    const voiceChannel = message.member.voice.channel;
+
+    const connection = await voiceChannel.join();
+
+    //If arg is an url link instead of a search term
+    if (validURL(messageFragments[1])) {
+      const stream = ytdl(messageFragments[1], {filter: "audioonly"});
+
+      connection.play(stream, {seek: 0, volume: 1})
+      await message.reply(`Now Playing: ${video.title}`)
+      return;
+    }
+
+    //yt search terms
+    const videoFinder = async (query) => {
+      const videoResult = await ytSearch(query);
+
+      return (videoResult.videos.length > 1) ? videoResult.videos[0] : null;
+    }
+
+    const video = await videoFinder(messageFragments[1]);
+    console.log(messageFragments[1]) 
+
+    if (video) { 
+      const stream = ytdl(video.url, {filter: "audioonly"});
+      connection.play(stream, {seek: 0, volume: 1});
+      await message.reply(`Now Playing: ${video.title}`)
+    } else {
+      message.send("No video was found")
     }
   }
 });
